@@ -299,10 +299,60 @@ DijetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
      // introduce a purposeful bias to the correction, to show what happens
      jet.scaleEnergy(JESbias);
 
+     // fill the histograms
+     hJetCorrPt->Fill(jet.pt(), mWeight);
+     hJetRawPt->Fill(jet.correctedJet("Uncorrected").pt(), mWeight);
+     hJetEta->Fill(jet.eta(), mWeight);
+     hJetPhi->Fill(jet.phi(), mWeight);
+     hJetCHF->Fill(jet.chargedHadronEnergyFraction(), mWeight);
+     hJetNHF->Fill(jet.neutralHadronEnergyFraction(), mWeight);
+     hJetEMF->Fill(jet.electronEnergyFraction() + jet.photonEnergyFraction(), mWeight);
 
      // put the selected jets into a collection
      selectedJets.push_back(jet);
    }
+
+   // require at least two jets to continue
+   if(selectedJets.size()<2) return;
+
+   // select high pt, central, non-noise-like jets
+   if (selectedJets[0].pt()<60.0) return;
+   if (fabs(selectedJets[0].eta())>2.5) return;
+   retpf.set(false);
+   if ( !pfjetIDTight(selectedJets[0], retpf) ) return;
+   if (selectedJets[1].pt()<30.0) return;
+   if (fabs(selectedJets[1].eta())>2.5) return;
+   retpf.set(false);
+   if ( !pfjetIDTight(selectedJets[1], retpf) ) return;
+
+   // fill histograms for the jets in our dijets, only
+   hJet1Pt ->Fill(selectedJets[0].pt(), mWeight);
+   hJet1Eta->Fill(selectedJets[0].eta(), mWeight);
+   hJet1Phi->Fill(selectedJets[0].phi(), mWeight);
+   hJet1CHF->Fill(selectedJets[0].chargedHadronEnergyFraction(), mWeight);
+   hJet1NHF->Fill(selectedJets[0].neutralHadronEnergyFraction(), mWeight);
+   hJet1EMF->Fill(selectedJets[0].electronEnergyFraction() + selectedJets[0].photonEnergyFraction(), mWeight);
+   hJet2Pt ->Fill(selectedJets[1].pt(), mWeight);
+   hJet2Eta->Fill(selectedJets[1].eta(), mWeight);
+   hJet2Phi->Fill(selectedJets[1].phi(), mWeight);
+   hJet2CHF->Fill(selectedJets[1].chargedHadronEnergyFraction(), mWeight);
+   hJet2NHF->Fill(selectedJets[1].neutralHadronEnergyFraction(), mWeight);
+   hJet2EMF->Fill(selectedJets[1].electronEnergyFraction() + selectedJets[1].photonEnergyFraction(), mWeight);
+
+   // get the mass of the two leading jets (needs their 4-vectors)
+   double rawMass = (selectedJets[0].correctedJet("Uncorrected").p4()+selectedJets[1].correctedJet("Uncorrected").p4()).M();
+   double corrMass = (selectedJets[0].p4()+selectedJets[1].p4()).M();
+   double deltaEta = std::abs(selectedJets[0].eta()-selectedJets[1].eta());
+   double deltaPhi = reco::deltaPhi(selectedJets[0].phi(),selectedJets[1].phi());
+   if (corrMass < dijetMassCut) return; // default cut is 1118 GeV
+   if (deltaEta > 1.3) return;
+   hRawDijetMass->Fill(rawMass, mWeight);
+   hCorrDijetMass->Fill(corrMass, mWeight);
+   hDijetDeltaPhi->Fill(deltaPhi, mWeight);
+   hDijetDeltaPhiNJets->Fill(deltaPhi, selectedJets.size(), mWeight);
+   hDijetDeltaEta->Fill(deltaEta, mWeight);
+   hDijetEta1Eta2->Fill(selectedJets[0].eta(), selectedJets[1].eta(), mWeight);
+
 
    hEventCount->Fill(3.);          // counts unweighted events after full event selection
    hEventCount->Fill(4., mWeight); // counts weighted events after full event selection
